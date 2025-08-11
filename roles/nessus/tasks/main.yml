@@ -1,0 +1,48 @@
+- name: Upgrade all packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+
+- name: Transfer Nessus.rpm from local host to remote host
+  ansible.builtin.copy:
+    src: "{{ rpm_file_src }}"
+    dest: "{{ rpm_file_dst }}"
+    mode: '0644'
+
+- name: Install Nessus from a local file
+  ansible.builtin.dnf:
+    name: "{{ rpm_file_dst }}"
+    state: present
+    disable_gpg_check: true
+
+- name: Open port 8834/tcp
+  firewalld:
+    port: 8834/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Reload firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+
+- name: Enable and start nessusd.service
+  ansible.builtin.service:
+    name: nessusd
+    state: started
+    enabled: yes
+  notify: restart nessus
+
+- name: Auth with cert
+  command: /opt/nessus/sbin/nessuscli fix --set force_pubkey_auth=yes
+  register: result
+  failed_when:
+    - "'Successfully set' not in result.stdout"
+    - "result.rc != 0"
+  changed_when: "'Successfully set' in result.stdout"
+
+- name: Remove rpm-file
+  ansible.builtin.file:
+    path: "{{ rpm_file_dst }}"
+    state: absent
