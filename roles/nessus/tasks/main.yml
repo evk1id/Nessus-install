@@ -46,3 +46,7 @@
   ansible.builtin.file:
     path: "{{ rpm_file_dst }}"
     state: absent
+
+- name: Reboot remote host
+  ansible.builtin.reboot:
+    reboot_timeout: 120
